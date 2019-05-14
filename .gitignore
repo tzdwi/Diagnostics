@@ -6,7 +6,8 @@ __pycache__/
 #Project specifics
 data/BPASS/
 NWAM/
-
+*.pro
+*input*
 # C extensions
 *.so
 
