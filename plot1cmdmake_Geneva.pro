@@ -41,10 +41,10 @@ for itype=1,0,-1 do begin
          dummy=fltarr(46)
          
          dum=strmid(xdum2,26,70)
-         test1=FILE_TEST("/astro/store/gradscratch/tmp/tzdw/Geneva/models/"+xdum2)
+         test1=FILE_TEST("/astro/store/gradscratch/tmp/tzdw/"+xdum2)
          print,xdum2,test1
          if(test1 eq 1) then begin
-            openr,6,"/astro/store/gradscratch/tmp/tzdw/Geneva/models/"+xdum2
+            openr,6,"/astro/store/gradscratch/tmp/tzdw/"+xdum2
 ;            print,dum
             lasttime=0e0
             lasttime2=mixedage
@@ -75,8 +75,11 @@ for itype=1,0,-1 do begin
                   T_sol = 5.778d3
                   logT_Tsol = T - alog10(T_sol)
                   logR = 0.5d0*(dummy(6) - 4d0*logT_Tsol) ;dummy(6) is luminosity
-                  gravity=alog10(6.67259d-8*1.9891d33*dummy(5)/((10d0^logR)*6.9598d10)^2d0)
-                  COHE=(dummy(12)/3.0+dummy(14)/4.0)/dummy(11)
+                  gravity=alog10(6.67259d-8*1.9891d33*dummy(5)/((10d0^logR)*6.9598d10)^2d0);dummy(5) is mass
+                  C = dummy(10) + dummy(11)
+                  O = dummy(13) + dummy(14) + dummy(15)
+                  He = dummy(9)
+                  COHE=(C/3.0+O/4.0)/He
                   logOfG= 3.676d+0 * T - 13.253d+0 ; using g_evol
                   
                   startype=0                            ;;;;decide star type
@@ -99,7 +102,7 @@ for itype=1,0,-1 do begin
                   
                   
                   
-                  x0=round(10e0*((dummy(4)))) ;log(L/Lsun)
+                  x0=round(10e0*((dummy(6)))) ;log(L/Lsun)
                   
                   x1=startype-1
                   
@@ -151,7 +154,7 @@ for itype=1,0,-1 do begin
                         it2last=it2
                         lasttime2=dummy(1)+mixedage                        
                      endif                    
-                     lasttime=dummy(1)
+                     lasttime=dummy(4)
                      itlast=it
                    endif
                endif
