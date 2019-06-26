@@ -1,7 +1,6 @@
 pro plot1cmdmake
 
-loadct,3
-znames=['z002','z014'];['z0004']
+znames=['z002','z014','z0004']
 
 
 timebin=dblarr(51)
@@ -13,7 +12,7 @@ names=['rot','not']
 
 for itype=1,0,-1 do begin
 
-   for zn=0,1 do begin ;for zn=0,2
+   for zn=0,2 do begin
       
       models=dblarr(10,100,51) ;;;this is the array which will store model data as goes through
       
@@ -38,7 +37,7 @@ for itype=1,0,-1 do begin
          mixedage=0D
          mixedimf=0D
          
-         dummy=fltarr(46)
+         dummy=fltarr(44)
          
          dum=strmid(xdum2,26,70)
          test1=FILE_TEST("/astro/store/gradscratch/tmp/tzdw/"+xdum2)
@@ -52,39 +51,49 @@ for itype=1,0,-1 do begin
             itmax=0
             itmax2=0
             itlast=0
-            dummy(10)=1e0
+            dummy(1)=1e0
             it2last=round(10e0*alog10(mixedage))-60
             if(it2last le 0) then it2last=0
             if(it2last ge 50) then it2last=50
             initialmass=-100d0
             initialmasstest=0
-            while(eof(6) eq 0 and dummy(4) le 100e9) do begin ;dummy(4) is Geneva Age
+            while(eof(6) eq 0 and dummy(1) le 100e9) do begin ;dummy(1) is Geneva Age
                readf,6,dummy
 
                count=count+1
-               dt=dummy(4)-lasttime
+               dt=dummy(1)-lasttime
                if(dt gt 0d0) then begin ;;;if actual timestep then go into loop
                   
-                  it=round(10e0*alog10(dummy(4)))-60 ;;set up binning in time
+                  it=round(10e0*alog10(dummy(1)))-60 ;;set up binning in time
                   if(it le 0) then it=0
                   if(it ge 50) then it=50
                   itmax=it
                   
-                  xh=dummy(8) ;;sets up some parameters. dummy(8) is X
-                  T=dummy(7) ;; dummy(7) is Temperature
+                  xh=dummy(5) ;;sets up some parameters. dummy(5) is X
+                  T=dummy(4) ;; dummy(4) is Temperature
                   T_sol = 5.778d3
                   logT_Tsol = T - alog10(T_sol)
-                  logR = 0.5d0*(dummy(6) - 4d0*logT_Tsol) ;dummy(6) is luminosity
-                  gravity=alog10(6.67259d-8*1.9891d33*dummy(5)/((10d0^logR)*6.9598d10)^2d0);dummy(5) is mass
-                  C = dummy(10) + dummy(11)
-                  O = dummy(13) + dummy(14) + dummy(15)
-                  He = dummy(9)
+                  logR = 0.5d0*(dummy(3) - 4d0*logT_Tsol) ;dummy(3) is luminosity
+                  gravity=alog10(6.67259d-8*1.9891d33*dummy(2)/((10d0^logR)*6.9598d10)^2d0);dummy(2) is mass
+                  C = dummy(7) + dummy(8) ;Carbon mass fractions
+                  O = dummy(10) + dummy(11) + dummy(12) ;Nitrogen mass fractions
+                  He = dummy(6) ;Helium mass fraction
                   COHE=(C/3.0+O/4.0)/He
                   logOfG= 3.676d+0 * T - 13.253d+0 ; using g_evol
                   
-                  startype=0                            ;;;;decide star type
-                  if(xh le 0.4 and T ge 4.45d0) then begin ;WR STAR 
-                     if(xh gt 1e-3) then begin
+                  startype=0 ;;;;decide star type
+                  
+                  ;;; Using Geneva-code criteria (Georgey et al. 2013, Section 5.4)
+                  ; T_WR = 4.0
+                  ; X_WR = 0.3
+                  ; X_WN/WC = 1e-5
+                  ; Use BPASS WN/WC criteria
+                  ; There are no K/M, just RSG, but all T_RSG < 3.66 are RSG anyway so we'll stick with that
+                  ; T_YSG < 3.8
+                  ; No A or B, use BPASS
+                  ; T_O = 4.5
+                  if(xh le 0.3 and T ge 4.0d0) then begin ;WR STAR 
+                     if(xh gt 1e-5) then begin
                         startype=8 ;for WNH
                      endif else begin
                         startype=9                     ;!WN
@@ -94,15 +103,15 @@ for itype=1,0,-1 do begin
                      startype=7                                           ;!M rsg
                      if(T ge 3.550) then startype=6                       ;!K rsg
                      if(T ge 3.660) then startype=5                       ;!YSG
-                     if(T ge 3.9) then startype=4                         ;!A bsg
+                     if(T ge 3.8) then startype=4                         ;!A bsg
                      if(T ge 4.041) then startype=3                       ;!B bsg
-                     if(T ge 4.48) then startype=1                        ;!O bsg
+                     if(T ge 4.5) then startype=1                        ;!O bsg
                      if(gravity lt logOfG and T ge 4.519d+0) then startype=2 ; !Of star
                   endelse
                   
                   
                   
-                  x0=round(10e0*((dummy(6)))) ;log(L/Lsun)
+                  x0=round(10e0*((dummy(3)))) ;log(L/Lsun)
                   
                   x1=startype-1
                   
@@ -154,7 +163,7 @@ for itype=1,0,-1 do begin
                         it2last=it2
                         lasttime2=dummy(1)+mixedage                        
                      endif                    
-                     lasttime=dummy(4)
+                     lasttime=dummy(1)
                      itlast=it
                    endif
                endif

@@ -7,24 +7,27 @@ ncounts = h5.File('../code/ncounts.hdf5','r')
 
 modeltypes = ncounts['meta'].attrs['modeltypes']
 zs = np.array([z.decode('ASCII') for z in ncounts['meta'].attrs['zs']])
-z_float = [1.0e-5,1.0e-4,0.001,0.002,0.004,0.006,0.008,0.01,0.014,0.020,0.030,0.040]
+z_float = [1.0e-5,1.0e-4,4.0e-4,0.001,0.002,0.004,0.006,0.008,0.01,0.014,0.020,0.030,0.040]
 subtypes = ncounts['meta'].attrs['subtypes']
 Lcuts = ncounts['meta'].attrs['Lcuts']
+models = ncounts['meta'].attrs['models']
 f_bins = np.linspace(0,1,11)
+f_rots = np.linspace(0,1,11)
 logages = ncounts['logtime'].value
 i_younger_than_100Myr = np.where(logages <= 8)
 ts = logages[i_younger_than_100Myr]
 dts = np.array([np.power(10.0,6.05)] + [np.power(10.0,6.15 + 0.1*i)-np.power(10.0,6.05 + 0.1*i) for i in range(1,51)])
 
 bcmap = cm.get_cmap('plasma')
+rcmap = cm.get_cmap('viridis')
 tcmap = cm.get_cmap('bone')
 zcmap = cm.get_cmap('pink')
 
-parname_dict = {'f_bin':f_bins,'z':zs,'logtime':ts}
-cmap_dict = {'f_bin':bcmap,'z':zcmap,'logtime':tcmap}
+parname_dict = {'f_bin':f_bins,'z':zs,'logtime':ts,'f_rot':f_rots}
+cmap_dict = {'f_bin':bcmap,'z':zcmap,'logtime':tcmap,'f_rot':rcmap}
 scale_dict = {'WC/WN':'linear','WR/RSG':'log','BSG/RSG':'log','WR/O':'log','WR/YSG':'log'}
 
-def get_arrs(subtype, z, Lcut = 0.0, SFH = 'burst'):
+def get_arrs(subtype, z, Lcut = 0.0, models = 'BPASS', SFH = 'burst'):
     """
     Given a subtype of star, gets the appropriate summed arrays from the data tables for both
     single and binary populations
@@ -34,10 +37,12 @@ def get_arrs(subtype, z, Lcut = 0.0, SFH = 'burst'):
     subtype : str
         Subtype of star. Must be in subtypes
     z : str
-        Metallicity, in format zXXX. Supports: zem5,zem4,z001,z002,z004,z006,z008,z010,
-        z014,z020,z030,z040
+        Metallicity, in format zXXX. Supports: zem5,zem4,z0004,z001,z002,z004,z006,z008,z010,
+        z014,z020,z030,z040. Depends on value of the models parameter.
     Lcut : float
         Minimum luminosity. Must be 0.0 or between 3.0 and 5.0, in steps of 0.1 dex
+    models : str
+        Choice of evolutionary code. Supports 'BPASS' or 'Geneva'
     SFH : str, or array-like
         Select a type of star forming history. Supported values: 'burst', 'const' or
         array-like with size 51, corresponding to SFR at each log time bin ago.
@@ -46,9 +51,10 @@ def get_arrs(subtype, z, Lcut = 0.0, SFH = 'burst'):
     Returns
     -------
     b_ncounts : `~numpy.ndarray`
-        Sum of all of the subsubtypes that go into the desired subtype for binaries
+        Sum of all of the subsubtypes that go into the desired subtype for binaries/rotating stars
     s_ncounts : `~numpy.ndarray`
-        Sum of all of the subsubtypes that go into the desired subtype for singles
+        Sum of all of the subsubtypes that go into the desired subtype for singles/nonrotating 
+        stars
     """
     
     assert (type(SFH) == str)|(hasattr(SFH,'__len__')), "Please supply a string or array"
@@ -57,9 +63,21 @@ def get_arrs(subtype, z, Lcut = 0.0, SFH = 'burst'):
     else:
         assert len(SFH) == 51, "Please supply an array-like object of length 51"
         SFH = np.array(SFH)
+        
+    assert models in ['BPASS','Geneva'], "Only supported values for models are 'BPASS' or 'Geneva'"
     
-    b_arr = ncounts['bin/{0}/{1}/{2}/ncounts'.format(z,subtype,str(Lcut))].value
-    s_arr = ncounts['sin/{0}/{1}/{2}/ncounts'.format(z,subtype,str(Lcut))].value
+    if models == 'BPASS':
+        assert z != 'z0004', "That metallicity is only valid for models='Geneva'"
+    else:
+        assert z in ['z0004','z014','z002'], "That metallicity is only valid for models='BPASS'"
+    
+    if models == 'BPASS':
+        b_arr = ncounts['{0}/{1}/{2}/{3}/{4}/ncounts'.format(models,'bin',z,subtype,str(Lcut))]
+        s_arr = ncounts['{0}/{1}/{2}/{3}/{4}/ncounts'.format(models,'sin',z,subtype,str(Lcut))]
+        
+    else:
+        b_arr = ncounts['{0}/{1}/{2}/{3}/{4}/ncounts'.format(models,'rot',z,subtype,str(Lcut))]
+        s_arr = ncounts['{0}/{1}/{2}/{3}/{4}/ncounts'.format(models,'not',z,subtype,str(Lcut))]
     
     
     if type(SFH) ==  str:
@@ -82,7 +100,7 @@ def get_arrs(subtype, z, Lcut = 0.0, SFH = 'burst'):
 
     return sum_b,sum_s
 
-def get_ratio_at_parameter(ratio,z,logtime,f_bin,Lcut1 = 0.0,Lcut2 = 0.0,Lcut = None, SFH = 'burst'):
+def get_ratio_at_parameter(ratio, z, logtime, f_bin=None, f_rot=None, Lcut1=0.0, Lcut2=0.0, Lcut=None, SFH='burst'):
     """
     Given a ratio, gets the appropriate summed arrays from the data tables for both
     single and binary populations, interpolates to the binary fraction, and then the 
@@ -98,7 +116,9 @@ def get_ratio_at_parameter(ratio,z,logtime,f_bin,Lcut1 = 0.0,Lcut2 = 0.0,Lcut = 
     logtime : float
         Log of time in years. Will interpolate.
     f_bin : float
-        Binary fraction, must be in range [0,1]
+        Binary fraction, must be in range [0,1]. If not given, must provide f_rot.
+    f_rot : float
+        Fraction of rotating stars, must be in range [0,1]. If not given, must provide f_bin.
     Lcut1 : float
         Minimum luminosity for species 1. Must be 0.0 or between 3.0 and 5.0, in steps 
         of 0.1 dex
@@ -115,19 +135,31 @@ def get_ratio_at_parameter(ratio,z,logtime,f_bin,Lcut1 = 0.0,Lcut2 = 0.0,Lcut = 
     Returns
     -------
     result : float
-        The ratio at the given binary fraction, and metallicity, and time
+        The ratio at the given binary fraction/rotating fraction, and metallicity, and time
     """
     if Lcut is not None:
         Lcut1 = np.clip(Lcut1,a_min=Lcut,a_max=None)
         Lcut2 = np.clip(Lcut2,a_min=Lcut,a_max=None)
+        
+    assert not ((f_rot is not None)&(f_bin is not None)), "Only specify f_bin or f_rot, not both."
+    
+    assert (f_rot is not None)|(f_bin is not None), "Please specify f_bin or f_rot."
+    
+    if f_bin is not None:
+        models = 'BPASS'
+        f_mix = f_bin
+    
+    else:
+        models = 'Geneva'
+        f_mix = f_rot
     
     subtypes = ratio.split('/')
     
-    subtype1_b,subtype1_s = get_arrs(subtypes[0],z,Lcut1,SFH=SFH)
-    subtype2_b,subtype2_s = get_arrs(subtypes[1],z,Lcut2,SFH=SFH)
+    subtype1_b,subtype1_s = get_arrs(subtypes[0],z,Lcut1,models=models,SFH=SFH)
+    subtype2_b,subtype2_s = get_arrs(subtypes[1],z,Lcut2,models=models,SFH=SFH)
     
-    subtype1 = f_bin*subtype1_b + (1.0-f_bin)*subtype1_s
-    subtype2 = f_bin*subtype2_b + (1.0-f_bin)*subtype2_s
+    subtype1 = f_mix*subtype1_b + (1.0-f_mix)*subtype1_s
+    subtype2 = f_mix*subtype2_b + (1.0-f_mix)*subtype2_s
     
     subtype1_t = np.interp(logtime,logages,subtype1,left=0,right=0)
     subtype2_t = np.interp(logtime,logages,subtype2,left=0,right=0)
@@ -186,7 +218,7 @@ def t_to_col(t):
     pos_in_arr = np.where(np.array(ts) == t)[0]/len(ts)
     return pos_in_arr[0]
 
-def plot_ratios(ratio1,ratio2,par3,par3val,constraint_dict=None,SFH='burst'):
+def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,SFH='burst'):
     """
     Plots ratio1 vs. ratio2. Between logtime, metallicity, and f_bin, choose one to freeze,
     and the ratios will be calculated on a grid of the other two options.
@@ -198,18 +230,22 @@ def plot_ratios(ratio1,ratio2,par3,par3val,constraint_dict=None,SFH='burst'):
     ratio2 : str
         Ratio you want to plot on the ordinate, in the form X/Y
     par3 : str
-        Parameter you want frozen. Must be one of 'logtime', 'f_bin', or 'z'
+        Parameter you want frozen. Must be one of 'logtime', 'f_bin', 'f_rot', or 'z'
     par3val : float or str
         Value of par3 to freeze at. If par3 = 'z', must be a BPASS metallicity string. Otherwise
-        a float for the binary fraction (between 0 and 1), or log time (between 6 and 11)
+        a float for the binary/rotating fraction (between 0 and 1), or log time (between 6 and 11)
+    models : str
+        Model set to use if par3 is not 'f_bin' or 'f_rot'. Determines whether the other two 
+        parameters to calculate the grid on is the binary fraction or the rotating fraction.
     constraint_dict : dict
-        Constraints to place on the grid. Keys are the same as values for par3, values are tuples of
-        min/max parameter values. Example: constraint_dict = {'z':('z002','z014'),'logtime':(6,8)}
-        will restrict the grid to being calculated for metallicities between 0.002 and 0.014, and 
-        ages between 10^6 and 10^8 years (this assumes par3='f_bin'). Can also specify 'Lcut' 
-        which specifies a lower luminosity bound for all four species, or 'Lcuts', which is a
-        tuple of length 4.If ratio1=X/Y, ratio2=A/B, constraint_dict = {'Lcuts':(4.9,0.0,3.5,4.0)} 
-        applies a minimum log luminosity of 4.9 to X, 0.0 to Y, 3.5 to A, and 4.0 to B.
+        Constraints to place on the grid. Keys are the same as values for par3, values are tuples 
+        of min/max parameter values. Example: constraint_dict = {'z':('z002','z014'),
+        'logtime':(6,8)} will restrict the grid to being calculated for metallicities between 
+        0.002 and 0.014, and ages between 10^6 and 10^8 years (this assumes par3='f_bin'). 
+        Can also specify 'Lcut' which specifies a lower luminosity bound for all four species, 
+        or 'Lcuts', which is a tuple of length 4. If ratio1=X/Y, ratio2=A/B, 
+        constraint_dict = {'Lcuts':(4.9,0.0,3.5,4.0)} applies a minimum log luminosity of 4.9 to 
+        X, 0.0 to Y, 3.5 to A, and 4.0 to B.
     SFH : str, or array-like
         Select a type of star forming history. Supported values: 'burst', 'const' or
         array-like with size 51, corresponding to SFR at each log time bin ago.
@@ -240,13 +276,27 @@ def plot_ratios(ratio1,ratio2,par3,par3val,constraint_dict=None,SFH='burst'):
         else:
             fbins_good = f_bins
             
+        if 'f_rot' in constraint_dict:
+            frot_min,frot_max = constraint_dict['f_rot']
+            frots_good = f_rots[(f_rots >= frot_min) & (f_rots <= frot_max)]
+            
         if 'z' in constraint_dict:
             z_min,z_max = constraint_dict['z']
             zs_val = np.array([z_to_val(z_t) for z_t in zs])
             zs_good = zs[(zs_val >= z_to_val(z_min)) & (zs_val <= z_to_val(z_max))]
             
         else:
-            zs_good = zs
+            if par3 == 'f_bin':
+                zs_good = [z for z in zs if z != 'z0004']
+            elif par3 == 'f_rot':
+                zs_good = ['z0004','z002','z014']
+            elif models == 'BPASS':
+                zs_good = [z for z in zs if z != 'z0004']
+            elif models == 'Geneva':
+                zs_good = ['z0004','z002','z014']
+            else:
+                assert False, 'You broke something, didnt you?'
+            
             
         if 'Lcuts' in constraint_dict:
             Lcuts = constraint_dict['Lcuts']
@@ -271,7 +321,17 @@ def plot_ratios(ratio1,ratio2,par3,par3val,constraint_dict=None,SFH='burst'):
         
         ts_good = ts
         fbins_good = f_bins
-        zs_good = zs
+        frots_good = f_rots
+        if par3 == 'f_bin':
+            zs_good = [z for z in zs if z != 'z0004']
+        elif par3 == 'f_rot':
+            zs_good = ['z0004','z002','z014']
+        elif models == 'BPASS':
+            zs_good = [z for z in zs if z != 'z0004']
+        elif models == 'Geneva':
+            zs_good = ['z0004','z002','z014']
+        else:
+            assert False, 'You broke something, didnt you?'
         
         Lcut11 = 0.0
         Lcut12 = 0.0
@@ -283,17 +343,30 @@ def plot_ratios(ratio1,ratio2,par3,par3val,constraint_dict=None,SFH='burst'):
     fig,ax = plt.subplots(1,2,figsize=(12,6))
     
     if par3 == 'logtime':
-        for f in fbins_good:
-            r1 = [get_ratio_at_parameter(ratio1,f_bin=f,logtime=par3val,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
-            r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=par3val,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
-            ax[0].loglog(r1,r2,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].axhline(y=f,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-        for z_t in zs_good:
-            r1 = [get_ratio_at_parameter(ratio1,f_bin=f,logtime=par3val,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for f in fbins_good]
-            r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=par3val,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in fbins_good]
-            ax[0].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].axvline(x=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-        ax[1].set(ylabel=r'$f_{bin}$',xlabel=r'Log $Z$') 
+        if models == 'BPASS':
+            for f in fbins_good:
+                r1 = [get_ratio_at_parameter(ratio1,f_bin=f,logtime=par3val,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
+                r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=par3val,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
+                ax[0].loglog(r1,r2,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[1].axhline(y=f,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            for z_t in zs_good:
+                r1 = [get_ratio_at_parameter(ratio1,f_bin=f,logtime=par3val,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for f in fbins_good]
+                r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=par3val,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in fbins_good]
+                ax[0].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[1].axvline(x=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[1].set(ylabel=r'$f_{bin}$',xlabel=r'Log $Z$')
+        elif models == 'Geneva':
+            for f in frots_good:
+                r1 = [get_ratio_at_parameter(ratio1,f_rot=f,logtime=par3val,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
+                r2 = [get_ratio_at_parameter(ratio2,f_rot=f,logtime=par3val,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
+                ax[0].loglog(r1,r2,c=rcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[1].axhline(y=f,c=rcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            for z_t in zs_good:
+                r1 = [get_ratio_at_parameter(ratio1,f_rot=f,logtime=par3val,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for f in frots_good]
+                r2 = [get_ratio_at_parameter(ratio2,f_rot=f,logtime=par3val,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in frots_good]
+                ax[0].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[1].axvline(x=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[1].set(ylabel=r'$f_{rot}$',xlabel=r'Log $Z$')
         
     elif par3 == 'f_bin':
         for t in ts_good:
@@ -308,18 +381,45 @@ def plot_ratios(ratio1,ratio2,par3,par3val,constraint_dict=None,SFH='burst'):
             ax[1].axhline(y=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])  
         ax[1].set(xlabel='Log Time [yr]',ylabel=r'Log $Z$') 
         
-    elif par3 == 'z':
-        for f in fbins_good:
-            r1 = [get_ratio_at_parameter(ratio1,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for t in ts_good]
-            r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for t in ts_good]
-            ax[0].loglog(r1,r2,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].axhline(y=f,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+    elif par3 == 'f_rot':
         for t in ts_good:
-            r1 = [get_ratio_at_parameter(ratio1,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for f in fbins_good]
-            r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in fbins_good]
+            r1 = [get_ratio_at_parameter(ratio1,f_rot=par3val,logtime=t,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
+            r2 = [get_ratio_at_parameter(ratio2,f_rot=par3val,logtime=t,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
             ax[0].loglog(r1,r2,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
             ax[1].axvline(t,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-        ax[1].set(xlabel='Log Time [yr]',ylabel=r'$f_{bin}$') 
+        for z_t in zs_good:
+            r1 = [get_ratio_at_parameter(ratio1,f_rot=par3val,logtime=t,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for t in ts_good]
+            r2 = [get_ratio_at_parameter(ratio2,f_rot=par3val,logtime=t,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for t in ts_good]
+            ax[0].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[1].axhline(y=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])  
+        ax[1].set(xlabel='Log Time [yr]',ylabel=r'Log $Z$')
+        
+    elif par3 == 'z':
+        if models == 'BPASS':
+            for f in fbins_good:
+                r1 = [get_ratio_at_parameter(ratio1,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for t in ts_good]
+                r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for t in ts_good]
+                ax[0].loglog(r1,r2,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[1].axhline(y=f,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            for t in ts_good:
+                r1 = [get_ratio_at_parameter(ratio1,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for f in fbins_good]
+                r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in fbins_good]
+                ax[0].loglog(r1,r2,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[1].axvline(t,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[1].set(xlabel='Log Time [yr]',ylabel=r'$f_{bin}$') 
+            
+        elif models == 'Geneva':
+            for f in frots_good:
+                r1 = [get_ratio_at_parameter(ratio1,f_rot=f,logtime=t,z=par3val,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for t in ts_good]
+                r2 = [get_ratio_at_parameter(ratio2,f_rot=f,logtime=t,z=par3val,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for t in ts_good]
+                ax[0].loglog(r1,r2,c=rcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[1].axhline(y=f,c=rcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            for t in ts_good:
+                r1 = [get_ratio_at_parameter(ratio1,f_rot=f,logtime=t,z=par3val,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for f in frots_good]
+                r2 = [get_ratio_at_parameter(ratio2,f_rot=f,logtime=t,z=par3val,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in frots_good]
+                ax[0].loglog(r1,r2,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[1].axvline(t,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[1].set(xlabel='Log Time [yr]',ylabel=r'$f_{rot}$') 
     
     
     ax[0].set(xlabel=r'${}$'.format(ratio1),ylabel=r'${}$'.format(ratio2),title=par3+' = {0}'.format(par3val))
