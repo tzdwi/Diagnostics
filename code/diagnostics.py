@@ -218,7 +218,7 @@ def t_to_col(t):
     pos_in_arr = np.where(np.array(ts) == t)[0]/len(ts)
     return pos_in_arr[0]
 
-def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,SFH='burst'):
+def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,SFH='burst',fig=None):
     """
     Plots ratio1 vs. ratio2. Between logtime, metallicity, and f_bin, choose one to freeze,
     and the ratios will be calculated on a grid of the other two options.
@@ -250,6 +250,8 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
         Select a type of star forming history. Supported values: 'burst', 'const' or
         array-like with size 51, corresponding to SFR at each log time bin ago.
         Default: 'burst'
+    fig : `matplotlib.Figure`
+        If given, adds the axes into fig.
         
     Returns
     -------
@@ -279,6 +281,9 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
         if 'f_rot' in constraint_dict:
             frot_min,frot_max = constraint_dict['f_rot']
             frots_good = f_rots[(f_rots >= frot_min) & (f_rots <= frot_max)]
+            
+        else:
+            frots_good = f_rots
             
         if 'z' in constraint_dict:
             z_min,z_max = constraint_dict['z']
@@ -339,8 +344,10 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
         Lcut22 = 0.0
         Lcut = 0.0
     
-    
-    fig,ax = plt.subplots(1,2,figsize=(12,6))
+    if fig is None:
+        fig,ax = plt.subplots(1,2,figsize=(12,6))
+    else:
+        ax = fig.axes
     
     if par3 == 'logtime':
         if models == 'BPASS':

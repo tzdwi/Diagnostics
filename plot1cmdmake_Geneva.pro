@@ -76,9 +76,8 @@ for itype=1,0,-1 do begin
                   logR = 0.5d0*(dummy(3) - 4d0*logT_Tsol) ;dummy(3) is luminosity
                   gravity=alog10(6.67259d-8*1.9891d33*dummy(2)/((10d0^logR)*6.9598d10)^2d0);dummy(2) is mass
                   C = dummy(7) + dummy(8) ;Carbon mass fractions
-                  O = dummy(10) + dummy(11) + dummy(12) ;Nitrogen mass fractions
+                  N = dummy(9) ;Nitrogen mass fraction
                   He = dummy(6) ;Helium mass fraction
-                  COHE=(C/3.0+O/4.0)/He
                   logOfG= 3.676d+0 * T - 13.253d+0 ; using g_evol
                   
                   startype=0 ;;;;decide star type
@@ -86,8 +85,8 @@ for itype=1,0,-1 do begin
                   ;;; Using Geneva-code criteria (Georgey et al. 2013, Section 5.4)
                   ; T_WR = 4.0
                   ; X_WR = 0.3
-                  ; X_WN/WC = 1e-5
-                  ; Use BPASS WN/WC criteria
+                  ; X_WNh/WN = 1e-5
+                  ; WN is Sum(N) > Sum(C), Georgey et al. 2012, Section 3.1
                   ; There are no K/M, just RSG, but all T_RSG < 3.66 are RSG anyway so we'll stick with that
                   ; T_YSG < 3.8
                   ; No A or B, use BPASS
@@ -97,7 +96,7 @@ for itype=1,0,-1 do begin
                         startype=8 ;for WNH
                      endif else begin
                         startype=9                     ;!WN
-                        if(COHE gt 0.03) then startype=10 ;!for WC
+                        if(C gt N) then startype=10 ;!for WC
                      endelse
                   endif else begin                                        ;pre-WR star
                      startype=7                                           ;!M rsg
