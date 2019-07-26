@@ -2,6 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt, cm as cm, patheffects as pe, colors as colors, colorbar as cbar
 import h5py as h5
 import matplotlib.lines as mlines
+import emcee
 
 ncounts = h5.File('../code/ncounts.hdf5','r')
 
@@ -460,3 +461,180 @@ def calc_ratio_err(spec1,spec2):
     
     return result,err
 
+def ratio_lnlikelihood(theta,X,Y):
+    """
+    Calculates the likelihood of the data assuming the underlying ratio, R, and the true
+    value of the number of species Y, lambda_Y, given the data X and Y
+    
+    Parameters
+    ----------
+    theta : tuple
+        model parameters, R and lambda_Y
+    
+    X : int
+        Numerator of the observed ratio
+    Y : int
+        Denominator of the observed ratio
+        
+    Returns
+    -------
+    lnlike : float
+        Natural log of the likelihood function.
+    
+    """
+    
+    R,lambda_Y = theta
+    lognumerator = X*np.log(R) + (X+Y)*np.log(lambda_Y) - lambda_Y*(R+1.0)
+    logdenominator = np.sum(np.log(np.arange(1,X+1))) + np.sum(np.log(np.arange(1,Y+1)))
+    
+    return lognumerator - logdenominator
+
+def ratio_lnprior_phi_half(theta):
+    """
+    Calculates the prior probability of the underlying ratio, R, and the true
+    value of the number of species Y, lambda_Y, given phi = 1/2. Ensures lambda_Y and R are 
+    positive
+    
+    Parameter
+    ---------
+    theta : tuple
+        model parameters, R and lambda_Y
+        
+    Returns
+    -------
+    lnprior : float
+        Natural log of the prior probability.
+    
+    """
+    
+    R,lambda_Y = theta
+    if (R <= 0) or (lambda_Y <= 0):
+        return -np.inf
+    phi = 0.5
+    return (phi - 1.0)*np.log(R) + (2.0*phi - 1.0)*np.log(lambda_Y)
+
+def ratio_lnprior_phi_zero(theta):
+    """
+    Calculates the prior probability of the underlying ratio, R, and the true
+    value of the number of species Y, lambda_Y, given phi = 0. Ensures lambda_Y and R are positive
+    
+    Parameter
+    ---------
+    theta : tuple
+        model parameters, R and lambda_Y
+        
+    Returns
+    -------
+    lnprior : float
+        Natural log of the prior probability.
+    
+    """
+    
+    R,lambda_Y = theta
+    if (R <= 0) or (lambda_Y <= 0):
+        return -np.inf
+    phi = 0.0
+    return (phi - 1.0)*np.log(R) + (2.0*phi - 1.0)*np.log(lambda_Y)
+
+def ratio_lnprior_phi_one(theta):
+    """
+    Calculates the prior probability of the underlying ratio, R, and the true
+    value of the number of species Y, lambda_Y, given phi = 1. Ensures lambda_Y and R are positive
+    
+    Parameter
+    ---------
+    theta : tuple
+        model parameters, R and lambda_Y
+        
+    Returns
+    -------
+    lnprior : float
+        Natural log of the prior probability.
+    
+    """
+    
+    R,lambda_Y = theta
+    if (R <= 0) or (lambda_Y <= 0):
+        return -np.inf
+    phi = 1.0
+    return (phi - 1.0)*np.log(R) + (2.0*phi - 1.0)*np.log(lambda_Y)
+
+lnprior_lookup = {0:ratio_lnprior_phi_zero,1/2:ratio_lnprior_phi_half,1:ratio_lnprior_phi_one}
+
+def ratio_lnprob(theta, X, Y, phi):
+    """
+    Posterior distribution function
+    
+    Parameters
+    ----------
+    theta : tuple
+        Contains R and lambda_Y
+    
+    X : int
+        Observed number of species X
+        
+    Y : int
+        Observed number of species Y
+    
+    phi : float
+        Slope of prior probability function
+        
+    Returns
+    -------
+    lnprob : float
+        The log posterior probability
+    
+    """
+    lp = lnprior_lookup[phi](theta)
+    if not np.isfinite(lp):
+        return -np.inf
+    return lp + ratio_lnlikelihood(theta, X, Y)
+
+
+def MCMC_ratio_errors(X,Y,phi=0.5,nwalkers=100,nburnin=500,nsteps=3000,prob_width=68.0):
+    """
+    Performs a Markov-Chain Monte Carlo simulation to estimate the value and a confidence 
+    interval for the ratio X/Y.
+    
+    Parameters
+    ----------
+    X : int
+        Observed number of species X
+    Y : int
+        Observed number of species Y
+    phi : float
+        Slope of prior probability function
+    nwalkers : int
+        Number of MCMC walkers, default 100
+    nburnin : int
+        Number of burn-in steps to take that are then discarded, default 500
+    nsteps : int
+        Number of production steps to take, default 3000
+    prob_width : float
+        Desired size of the confidence interval, in percentage, default 68%.
+        
+    Returns
+    -------
+    R : `numpy.ndarray`
+        Contains the median and upper/lower errors (68th percentile) for the true ratio
+        
+    lambda_Y : `numpy.ndarray`
+        Contains the median and upper/lower errors (68th percentile) for the true lambda_Y
+    
+    """
+    
+    R_test = np.clip(X/Y,1e-10,1e5) #if X or Y are zero, clips to a very large or small number
+    
+    pos = [np.array([R_test,Y]) + 1e-4*np.random.randn(2) for i in range(nwalkers)]
+    sampler = emcee.EnsembleSampler(nwalkers, 2, ratio_lnprob, args=(X,Y,phi))
+    sampler.run_mcmc(pos, nburnin)
+    p1 = sampler.chain[:, -1, :]
+    sampler.clear_chain()
+    sampler.run_mcmc(p1, nsteps)
+    samples = sampler.flatchain
+    
+    R, lambda_Y = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
+                             zip(*np.percentile(samples, 
+                                                [50 - prob_width/2, 50, 50 + prob_width/2],
+                                                axis=0)))
+    return np.array(R), np.array(lambda_Y)
