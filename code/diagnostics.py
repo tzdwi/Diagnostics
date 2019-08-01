@@ -620,6 +620,9 @@ def MCMC_ratio_errors(X,Y,phi=0.5,nwalkers=100,nburnin=500,nsteps=3000,prob_widt
         
     lambda_Y : `numpy.ndarray`
         Contains the median and upper/lower errors (68th percentile) for the true lambda_Y
+        
+    sampler : `emcee.EnsembleSampler`
+        The finished sampler object, which can be checked to ensure convergence.
     
     """
     
@@ -637,4 +640,4 @@ def MCMC_ratio_errors(X,Y,phi=0.5,nwalkers=100,nburnin=500,nsteps=3000,prob_widt
                              zip(*np.percentile(samples, 
                                                 [50 - prob_width/2, 50, 50 + prob_width/2],
                                                 axis=0)))
-    return np.array(R), np.array(lambda_Y)
+    return np.array(R), np.array(lambda_Y), sampler

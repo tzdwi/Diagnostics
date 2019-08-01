@@ -4,8 +4,8 @@ __pycache__/
 *$py.class
 
 #Project specifics
-data/BPASS/
-data/Geneva
+data/
+data/
 NWAM/
 *.pro
 *input*
