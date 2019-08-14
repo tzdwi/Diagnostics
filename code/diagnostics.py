@@ -362,7 +362,7 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
                 r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=par3val,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in fbins_good]
                 ax[0].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
                 ax[1].axvline(x=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].set(ylabel=r'$f_{bin}$',xlabel=r'Log $Z$')
+            ax[1].set(ylabel=r'$f_{bin}$',xlabel=r'$\log{Z}$')
         elif models == 'Geneva':
             for f in frots_good:
                 r1 = [get_ratio_at_parameter(ratio1,f_rot=f,logtime=par3val,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
@@ -374,7 +374,7 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
                 r2 = [get_ratio_at_parameter(ratio2,f_rot=f,logtime=par3val,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in frots_good]
                 ax[0].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
                 ax[1].axvline(x=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].set(ylabel=r'$f_{rot}$',xlabel=r'Log $Z$')
+            ax[1].set(ylabel=r'$f_{rot}$',xlabel=r'$\log{Z}$')
         
     elif par3 == 'f_bin':
         for t in ts_good:
@@ -387,7 +387,7 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
             r2 = [get_ratio_at_parameter(ratio2,f_bin=par3val,logtime=t,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for t in ts_good]
             ax[0].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
             ax[1].axhline(y=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])  
-        ax[1].set(xlabel='Log Time [yr]',ylabel=r'Log $Z$') 
+        ax[1].set(xlabel=r'$\log{t}$',ylabel=r'$\log{Z}$') 
         
     elif par3 == 'f_rot':
         for t in ts_good:
@@ -400,7 +400,7 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
             r2 = [get_ratio_at_parameter(ratio2,f_rot=par3val,logtime=t,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for t in ts_good]
             ax[0].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
             ax[1].axhline(y=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])  
-        ax[1].set(xlabel='Log Time [yr]',ylabel=r'Log $Z$')
+        ax[1].set(xlabel=r'$\log{t}$',ylabel=r'$\log{Z}$')
         
     elif par3 == 'z':
         if models == 'BPASS':
@@ -414,7 +414,7 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
                 r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in fbins_good]
                 ax[0].loglog(r1,r2,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
                 ax[1].axvline(t,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].set(xlabel='Log Time [yr]',ylabel=r'$f_{bin}$') 
+            ax[1].set(xlabel=r'$\log{t}$',ylabel=r'$f_{bin}$') 
             
         elif models == 'Geneva':
             for f in frots_good:
@@ -427,10 +427,10 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
                 r2 = [get_ratio_at_parameter(ratio2,f_rot=f,logtime=t,z=par3val,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in frots_good]
                 ax[0].loglog(r1,r2,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
                 ax[1].axvline(t,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].set(xlabel='Log Time [yr]',ylabel=r'$f_{rot}$') 
+            ax[1].set(xlabel=r'$\log{t}$',ylabel=r'$f_{rot}$') 
     
     
-    ax[0].set(xlabel=r'${}$'.format(ratio1),ylabel=r'${}$'.format(ratio2),title=par3+' = {0}'.format(par3val))
+    ax[0].set(xlabel=r'$\mathcal{{R}}_{{{}}}$'.format(ratio1),ylabel=r'$\mathcal{{R}}_{{{}}}$'.format(ratio2),title=par3+' = {0}'.format(par3val))
     
     return fig,ax
 
