@@ -430,7 +430,7 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
             ax[1].set(xlabel=r'$\log{t}$',ylabel=r'$f_{rot}$') 
     
     
-    ax[0].set(xlabel=r'$\mathcal{{R}}_{{{}}}$'.format(ratio1),ylabel=r'$\mathcal{{R}}_{{{}}}$'.format(ratio2),title=par3+' = {0}'.format(par3val))
+    ax[0].set(xlabel=r'$\hat{{R}}_{{{}}}$'.format(ratio1),ylabel=r'$\hat{{R}}_{{{}}}$'.format(ratio2),title=par3+' = {0}'.format(par3val))
     
     return fig,ax
 
