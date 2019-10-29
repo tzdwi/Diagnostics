@@ -202,7 +202,7 @@ def z_to_val(z):
     z_f = z_float[pos_in_arr]
     return z_f
 
-def t_to_col(t):
+def t_to_col(t, tmin=6, tmax=11):
     """
     Given a BPASS time bin, returns a value to input into the time colormap
     
@@ -216,7 +216,8 @@ def t_to_col(t):
     out : int
         Input to tcmap to get the right color out
     """
-    pos_in_arr = np.where(np.array(ts) == t)[0]/len(ts)
+    constrained_ts = np.unique(np.clip(ts,tmin,tmax))
+    pos_in_arr = np.where(np.array(constrained_ts) == t)[0]/len(constrained_ts)
     return pos_in_arr[0]
 
 def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,SFH='burst',fig=None):
@@ -326,6 +327,8 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
     else:
         
         ts_good = ts
+        logtime_min = 6
+        logtime_max = 11
         fbins_good = f_bins
         frots_good = f_rots
         if par3 == 'f_bin':
@@ -380,8 +383,8 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
         for t in ts_good:
             r1 = [get_ratio_at_parameter(ratio1,f_bin=par3val,logtime=t,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
             r2 = [get_ratio_at_parameter(ratio2,f_bin=par3val,logtime=t,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
-            ax[0].loglog(r1,r2,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].axvline(t,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[0].loglog(r1,r2,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[1].axvline(t,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
         for z_t in zs_good:
             r1 = [get_ratio_at_parameter(ratio1,f_bin=par3val,logtime=t,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for t in ts_good]
             r2 = [get_ratio_at_parameter(ratio2,f_bin=par3val,logtime=t,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for t in ts_good]
@@ -393,8 +396,8 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
         for t in ts_good:
             r1 = [get_ratio_at_parameter(ratio1,f_rot=par3val,logtime=t,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
             r2 = [get_ratio_at_parameter(ratio2,f_rot=par3val,logtime=t,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
-            ax[0].loglog(r1,r2,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].axvline(t,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[0].loglog(r1,r2,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[1].axvline(t,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
         for z_t in zs_good:
             r1 = [get_ratio_at_parameter(ratio1,f_rot=par3val,logtime=t,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for t in ts_good]
             r2 = [get_ratio_at_parameter(ratio2,f_rot=par3val,logtime=t,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for t in ts_good]
@@ -412,8 +415,8 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
             for t in ts_good:
                 r1 = [get_ratio_at_parameter(ratio1,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for f in fbins_good]
                 r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in fbins_good]
-                ax[0].loglog(r1,r2,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-                ax[1].axvline(t,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[0].loglog(r1,r2,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[1].axvline(t,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
             ax[1].set(xlabel=r'$\log{t}$',ylabel=r'$f_{bin}$') 
             
         elif models == 'Geneva':
@@ -425,8 +428,8 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
             for t in ts_good:
                 r1 = [get_ratio_at_parameter(ratio1,f_rot=f,logtime=t,z=par3val,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for f in frots_good]
                 r2 = [get_ratio_at_parameter(ratio2,f_rot=f,logtime=t,z=par3val,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in frots_good]
-                ax[0].loglog(r1,r2,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-                ax[1].axvline(t,c=tcmap(t_to_col(t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[0].loglog(r1,r2,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[1].axvline(t,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
             ax[1].set(xlabel=r'$\log{t}$',ylabel=r'$f_{rot}$') 
     
     
