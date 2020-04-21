@@ -1,10 +1,13 @@
 import numpy as np
 from matplotlib import pyplot as plt, cm as cm, patheffects as pe, colors as colors, colorbar as cbar
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import h5py as h5
 import matplotlib.lines as mlines
 import emcee
+from os import path
 
-ncounts = h5.File('../code/ncounts.hdf5','r')
+h5_file = path.join(path.dirname(__file__), 'ncounts.hdf5')
+ncounts = h5.File(h5_file,'r')
 
 modeltypes = ncounts['meta'].attrs['modeltypes']
 zs = np.array([z.decode('ASCII') for z in ncounts['meta'].attrs['zs']])
@@ -14,14 +17,14 @@ Lcuts = ncounts['meta'].attrs['Lcuts']
 models = ncounts['meta'].attrs['models']
 f_bins = np.linspace(0,1,11)
 f_rots = np.linspace(0,1,11)
-logages = ncounts['logtime'].value
+logages = ncounts['logtime'][()]
 i_younger_than_100Myr = np.where(logages <= 8)
 ts = logages[i_younger_than_100Myr]
 dts = np.array([np.power(10.0,6.05)] + [np.power(10.0,6.15 + 0.1*i)-np.power(10.0,6.05 + 0.1*i) for i in range(1,51)])
 
 bcmap = cm.get_cmap('plasma')
 rcmap = cm.get_cmap('viridis')
-tcmap = cm.get_cmap('bone')
+tcmap = cm.get_cmap('cividis')
 zcmap = cm.get_cmap('pink')
 
 parname_dict = {'f_bin':f_bins,'z':zs,'logtime':ts,'f_rot':f_rots}
@@ -65,7 +68,7 @@ def get_arrs(subtype, z, Lcut = 0.0, models = 'BPASS', SFH = 'burst'):
         assert len(SFH) == 51, "Please supply an array-like object of length 51"
         SFH = np.array(SFH)
         
-    assert models in ['BPASS','Geneva'], "Only supported values for models are 'BPASS' or 'Geneva'"
+    assert models in ['BPASS','Geneva','Geneva_BPASS_crit'], "Only supported values for models are 'BPASS' or 'Geneva'"
     
     if models == 'BPASS':
         assert z != 'z0004', "That metallicity is only valid for models='Geneva'"
@@ -352,88 +355,95 @@ def plot_ratios(ratio1,ratio2,par3,par3val,models='BPASS',constraint_dict=None,S
         fig,ax = plt.subplots(1,2,figsize=(12,6))
     else:
         ax = fig.axes
+        if hasattr(ax, 'shape'):
+            if ax.shape != (2,):
+                ax = list(ax)
+                ax.append(inset_axes(ax[-1], width='40%', height='30%', loc=3))
+        else:
+            if len(ax) != 2:
+                ax.append(inset_axes(ax[-1], width='40%', height='30%', loc=3))
     
     if par3 == 'logtime':
         if models == 'BPASS':
             for f in fbins_good:
                 r1 = [get_ratio_at_parameter(ratio1,f_bin=f,logtime=par3val,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
                 r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=par3val,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
-                ax[0].loglog(r1,r2,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-                ax[1].axhline(y=f,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[-2].loglog(r1,r2,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[-1].axhline(y=f,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
             for z_t in zs_good:
                 r1 = [get_ratio_at_parameter(ratio1,f_bin=f,logtime=par3val,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for f in fbins_good]
                 r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=par3val,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in fbins_good]
-                ax[0].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-                ax[1].axvline(x=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].set(ylabel=r'$f_{bin}$',xlabel=r'$\log{Z}$')
+                ax[-2].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[-1].axvline(x=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[-1].set(ylabel=r'$f_{bin}$',xlabel=r'$\log{Z}$')
         elif models == 'Geneva':
             for f in frots_good:
                 r1 = [get_ratio_at_parameter(ratio1,f_rot=f,logtime=par3val,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
                 r2 = [get_ratio_at_parameter(ratio2,f_rot=f,logtime=par3val,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
-                ax[0].loglog(r1,r2,c=rcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-                ax[1].axhline(y=f,c=rcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[-2].loglog(r1,r2,c=rcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[-1].axhline(y=f,c=rcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
             for z_t in zs_good:
                 r1 = [get_ratio_at_parameter(ratio1,f_rot=f,logtime=par3val,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for f in frots_good]
                 r2 = [get_ratio_at_parameter(ratio2,f_rot=f,logtime=par3val,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in frots_good]
-                ax[0].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-                ax[1].axvline(x=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].set(ylabel=r'$f_{rot}$',xlabel=r'$\log{Z}$')
+                ax[-2].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[-1].axvline(x=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[-1].set(ylabel=r'$f_{rot}$',xlabel=r'$\log{Z}$')
         
     elif par3 == 'f_bin':
         for t in ts_good:
             r1 = [get_ratio_at_parameter(ratio1,f_bin=par3val,logtime=t,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
             r2 = [get_ratio_at_parameter(ratio2,f_bin=par3val,logtime=t,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
-            ax[0].loglog(r1,r2,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].axvline(t,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[-2].loglog(r1,r2,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[-1].axvline(t,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
         for z_t in zs_good:
             r1 = [get_ratio_at_parameter(ratio1,f_bin=par3val,logtime=t,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for t in ts_good]
             r2 = [get_ratio_at_parameter(ratio2,f_bin=par3val,logtime=t,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for t in ts_good]
-            ax[0].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].axhline(y=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])  
-        ax[1].set(xlabel=r'$\log{t}$',ylabel=r'$\log{Z}$') 
+            ax[-2].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[-1].axhline(y=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])  
+        ax[-1].set(xlabel=r'$\log{t}$',ylabel=r'$\log{Z}$') 
         
     elif par3 == 'f_rot':
         for t in ts_good:
             r1 = [get_ratio_at_parameter(ratio1,f_rot=par3val,logtime=t,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
             r2 = [get_ratio_at_parameter(ratio2,f_rot=par3val,logtime=t,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for z_t in zs_good]
-            ax[0].loglog(r1,r2,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].axvline(t,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[-2].loglog(r1,r2,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[-1].axvline(t,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
         for z_t in zs_good:
             r1 = [get_ratio_at_parameter(ratio1,f_rot=par3val,logtime=t,z=z_t,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for t in ts_good]
             r2 = [get_ratio_at_parameter(ratio2,f_rot=par3val,logtime=t,z=z_t,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for t in ts_good]
-            ax[0].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].axhline(y=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])  
-        ax[1].set(xlabel=r'$\log{t}$',ylabel=r'$\log{Z}$')
+            ax[-2].loglog(r1,r2,c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[-1].axhline(y=np.log10(z_to_val(z_t)),c=zcmap(z_to_col(z_t)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])  
+        ax[-1].set(xlabel=r'$\log{t}$',ylabel=r'$\log{Z}$')
         
     elif par3 == 'z':
         if models == 'BPASS':
             for f in fbins_good:
                 r1 = [get_ratio_at_parameter(ratio1,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for t in ts_good]
                 r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for t in ts_good]
-                ax[0].loglog(r1,r2,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-                ax[1].axhline(y=f,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[-2].loglog(r1,r2,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[-1].axhline(y=f,c=bcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
             for t in ts_good:
                 r1 = [get_ratio_at_parameter(ratio1,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for f in fbins_good]
                 r2 = [get_ratio_at_parameter(ratio2,f_bin=f,logtime=t,z=par3val,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in fbins_good]
-                ax[0].loglog(r1,r2,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-                ax[1].axvline(t,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].set(xlabel=r'$\log{t}$',ylabel=r'$f_{bin}$') 
+                ax[-2].loglog(r1,r2,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[-1].axvline(t,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[-1].set(xlabel=r'$\log{t}$',ylabel=r'$f_{bin}$') 
             
         elif models == 'Geneva':
             for f in frots_good:
                 r1 = [get_ratio_at_parameter(ratio1,f_rot=f,logtime=t,z=par3val,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for t in ts_good]
                 r2 = [get_ratio_at_parameter(ratio2,f_rot=f,logtime=t,z=par3val,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for t in ts_good]
-                ax[0].loglog(r1,r2,c=rcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-                ax[1].axhline(y=f,c=rcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[-2].loglog(r1,r2,c=rcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[-1].axhline(y=f,c=rcmap(f),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
             for t in ts_good:
                 r1 = [get_ratio_at_parameter(ratio1,f_rot=f,logtime=t,z=par3val,Lcut1=Lcut11,Lcut2=Lcut12,Lcut=Lcut,SFH=SFH) for f in frots_good]
                 r2 = [get_ratio_at_parameter(ratio2,f_rot=f,logtime=t,z=par3val,Lcut1=Lcut21,Lcut2=Lcut22,Lcut=Lcut,SFH=SFH) for f in frots_good]
-                ax[0].loglog(r1,r2,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-                ax[1].axvline(t,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
-            ax[1].set(xlabel=r'$\log{t}$',ylabel=r'$f_{rot}$') 
+                ax[-2].loglog(r1,r2,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+                ax[-1].axvline(t,c=tcmap(t_to_col(t,logtime_min,logtime_max)),lw=3,path_effects=[pe.Stroke(linewidth=4, foreground='0.75'), pe.Normal()])
+            ax[-1].set(xlabel=r'$\log{t}$',ylabel=r'$f_{rot}$') 
     
     
-    ax[0].set(xlabel=r'$\hat{{R}}_{{{}}}$'.format(ratio1),ylabel=r'$\hat{{R}}_{{{}}}$'.format(ratio2),title=par3+' = {0}'.format(par3val))
+    ax[-2].set(xlabel=r'$\hat{{R}}_{{{}}}$'.format(ratio1),ylabel=r'$\hat{{R}}_{{{}}}$'.format(ratio2),title=par3+' = {0}'.format(par3val))
     
     return fig,ax
 
@@ -635,7 +645,7 @@ def MCMC_ratio_errors(X,Y,phi=0.5,nwalkers=100,nburnin=500,nsteps=3000,prob_widt
     sampler = emcee.EnsembleSampler(nwalkers, 2, ratio_lnprob, args=(X,Y,phi))
     sampler.run_mcmc(pos, nburnin)
     p1 = sampler.chain[:, -1, :]
-    sampler.clear_chain()
+    sampler.reset()
     sampler.run_mcmc(p1, nsteps)
     samples = sampler.flatchain
     
