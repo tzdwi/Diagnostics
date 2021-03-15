@@ -9,6 +9,8 @@ data/
 NWAM/
 paper_2019/v*/
 paper_2019/resubmit*/
+paper_2019/ApJ*
+paper_2019/arXiv/
 *.pro
 *input*
 # C extensions
